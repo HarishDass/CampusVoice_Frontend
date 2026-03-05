@@ -44,9 +44,14 @@ export default function StaffDashboard() {
   const navigate = useNavigate();
 
   const { data: stats } = useGetStaffDashboardStatsQuery();
-  const { data: allIssues = [] } = useGetAssignedGrievancesQuery({ limit: 5 });
-  const { data: deptStats = [] } = useGetDepartmentStatsQuery();
-  const { data: activity = [] } = useGetStaffActivityQuery({ limit: 4 });
+  const { data: rawIssues } = useGetAssignedGrievancesQuery({ limit: 5 });
+  const { data: deptStats=[] } = useGetDepartmentStatsQuery();
+  const { data: activity=[] } = useGetStaffActivityQuery({ limit: 4 });
+  console.log(deptStats,'deptStats')
+
+  const allIssues = Array.isArray(rawIssues)
+    ? rawIssues
+    : (rawIssues?.issues ?? []);
 
   const resolved = stats?.resolved || 0;
   const open = stats?.open || 0;
@@ -159,7 +164,7 @@ export default function StaffDashboard() {
                 </h3>
               </div>
               <div className="space-y-4">
-                {deptStats.slice(0, 5).map((dept, idx) => {
+                {deptStats?.slice(0, 5).map((dept, idx) => {
                   const deptTotal = dept?.total;
                   const deptProgress = deptTotal
                     ? Math.round((dept.resolved / deptTotal) * 100)
