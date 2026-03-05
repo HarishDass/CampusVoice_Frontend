@@ -17,6 +17,9 @@ import { useGetIssuesQuery } from "../../services/api";
 import _ from "lodash";
 import { useNavigate } from "react-router-dom";
 import moment from "moment";
+import { Pagination } from "../components/Pagination";
+
+const LIMIT = 10;
 
 const STATUS_COLORS: Record<string, string> = {
   resolved: "#10b981",
@@ -60,13 +63,19 @@ export default function AdminAllIssues() {
   const [filterPriority, setFilterPriority] = useState("all");
   const [filterCategory, setFilterCategory] = useState("all");
   const [searchQuery, setSearchQuery] = useState("");
+  const [page, setPage] = useState(1);
 
-  const { data: issues = [], isLoading } = useGetIssuesQuery();
+  const { data, isLoading } = useGetIssuesQuery({ page, limit: LIMIT });
+
+  const issues = data?.issues ?? [];
+  const totalPages = data?.totalPages ?? 1;
+  const total = data?.total ?? 0;
 
   const uniqueCategories: string[] = Array.from(
     new Set(issues.map((i: any) => i.category?.toLowerCase()).filter(Boolean)),
   );
 
+  // Client-side filter on current page data
   const filteredIssues = issues.filter((issue: any) => {
     const matchesStatus =
       filterStatus === "all" || issue.status === filterStatus;
@@ -86,7 +95,7 @@ export default function AdminAllIssues() {
   });
 
   const stats = {
-    total: issues.length,
+    total,
     open: issues.filter((i: any) => i.status === "open").length,
     inProgress: issues.filter((i: any) => i.status === "in_progress").length,
     resolved: issues.filter((i: any) => i.status === "resolved").length,
@@ -107,6 +116,12 @@ export default function AdminAllIssues() {
     setFilterPriority("all");
     setFilterCategory("all");
     setSearchQuery("");
+    setPage(1);
+  };
+
+  const handlePageChange = (p: number) => {
+    setPage(p);
+    window.scrollTo({ top: 0, behavior: "smooth" });
   };
 
   if (isLoading) {
@@ -124,7 +139,6 @@ export default function AdminAllIssues() {
     <div className="min-h-screen">
       <Sidebar role="admin" />
 
-      {/* CHANGED: md:ml-64 */}
       <div className="md:ml-64 min-h-screen bg-gradient-to-br from-[#080a0d] via-[#0f1419] to-[#1a1f2e]">
         <div
           className="fixed inset-0 md:ml-64 opacity-5 pointer-events-none"
@@ -137,7 +151,6 @@ export default function AdminAllIssues() {
           }}
         />
 
-        {/* CHANGED: p-4 on mobile */}
         <div className="relative z-10 p-4 md:p-8">
           {/* Header */}
           <motion.div
@@ -153,7 +166,7 @@ export default function AdminAllIssues() {
             </p>
           </motion.div>
 
-          {/* Stats - CHANGED: 3 cols on mobile, 6 on md */}
+          {/* Stats */}
           <div className="grid grid-cols-3 md:grid-cols-6 gap-2 md:gap-4 mb-6 md:mb-8">
             {[
               { label: "Total", value: stats.total, color: "text-white" },
@@ -196,10 +209,9 @@ export default function AdminAllIssues() {
             ))}
           </div>
 
-          {/* Filters - CHANGED: wrap on mobile */}
+          {/* Filters */}
           <GlassCard className="mb-6">
             <div className="flex gap-2 md:gap-3 flex-wrap items-center">
-              {/* Search - full width on mobile */}
               <div className="w-full md:flex-1 md:min-w-48 relative">
                 <Search
                   size={16}
@@ -207,7 +219,10 @@ export default function AdminAllIssues() {
                 />
                 <input
                   value={searchQuery}
-                  onChange={(e) => setSearchQuery(e.target.value)}
+                  onChange={(e) => {
+                    setSearchQuery(e.target.value);
+                    setPage(1);
+                  }}
                   placeholder="Search by title, ID, student or staff..."
                   className="w-full pl-9 pr-4 py-2 bg-slate-800 border border-slate-700 rounded-lg text-white text-sm focus:border-blue-500 focus:outline-none"
                 />
@@ -216,7 +231,10 @@ export default function AdminAllIssues() {
               <div className="flex gap-2 flex-wrap flex-1">
                 <select
                   value={filterCategory}
-                  onChange={(e) => setFilterCategory(e.target.value)}
+                  onChange={(e) => {
+                    setFilterCategory(e.target.value);
+                    setPage(1);
+                  }}
                   className="flex-1 min-w-0 bg-slate-800 border border-slate-700 rounded-lg px-2 md:px-3 py-2 text-white text-sm focus:outline-none"
                 >
                   <option value="all">All Categories</option>
@@ -229,7 +247,10 @@ export default function AdminAllIssues() {
 
                 <select
                   value={filterPriority}
-                  onChange={(e) => setFilterPriority(e.target.value)}
+                  onChange={(e) => {
+                    setFilterPriority(e.target.value);
+                    setPage(1);
+                  }}
                   className="flex-1 min-w-0 bg-slate-800 border border-slate-700 rounded-lg px-2 md:px-3 py-2 text-white text-sm focus:outline-none"
                 >
                   <option value="all">All Priority</option>
@@ -241,7 +262,10 @@ export default function AdminAllIssues() {
 
                 <select
                   value={filterStatus}
-                  onChange={(e) => setFilterStatus(e.target.value)}
+                  onChange={(e) => {
+                    setFilterStatus(e.target.value);
+                    setPage(1);
+                  }}
                   className="flex-1 min-w-0 bg-slate-800 border border-slate-700 rounded-lg px-2 md:px-3 py-2 text-white text-sm focus:outline-none"
                 >
                   <option value="all">All Status</option>
@@ -268,7 +292,7 @@ export default function AdminAllIssues() {
             </div>
 
             <p className="text-slate-500 text-xs mt-3">
-              Showing {filteredIssues.length} of {issues.length} issues
+              Showing {filteredIssues.length} of {total} issues
               {hasActiveFilters && " (filtered)"}
             </p>
           </GlassCard>
@@ -305,7 +329,11 @@ export default function AdminAllIssues() {
                     transition={{ delay: idx * 0.03 }}
                     whileHover={{ x: 4 }}
                     onClick={() => navigate(`/admin/issues/${issue._id}`)}
-                    className={`p-3 md:p-4 rounded-xl border cursor-pointer transition-all ${isEscalated ? "bg-orange-500/10 border-orange-500/30 hover:border-orange-500/50" : "bg-slate-800/30 hover:bg-slate-800/50 border-slate-700/50 hover:border-slate-600"}`}
+                    className={`p-3 md:p-4 rounded-xl border cursor-pointer transition-all ${
+                      isEscalated
+                        ? "bg-orange-500/10 border-orange-500/30 hover:border-orange-500/50"
+                        : "bg-slate-800/30 hover:bg-slate-800/50 border-slate-700/50 hover:border-slate-600"
+                    }`}
                   >
                     <div className="flex items-start gap-3 md:gap-4">
                       <div className="mt-0.5 shrink-0">
@@ -384,6 +412,15 @@ export default function AdminAllIssues() {
               })
             )}
           </div>
+
+          {/* Pagination */}
+          <Pagination
+            page={page}
+            totalPages={totalPages}
+            total={total}
+            limit={LIMIT}
+            onChange={handlePageChange}
+          />
         </div>
       </div>
     </div>

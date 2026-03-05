@@ -10,11 +10,11 @@ export default function ProtectedRoute({ allowedRole, children }: Props) {
   const role = localStorage.getItem("role");
 
   if (!token) {
-    return <Navigate to="/login" replace />;
+    return <Navigate to="/" replace />;
   }
 
   if (allowedRole && role !== allowedRole) {
-    return <Navigate to="/login" replace />;
+    return <Navigate to="/" replace />;
   }
 
   return <>{children}</>;

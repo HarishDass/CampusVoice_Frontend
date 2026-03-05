@@ -21,6 +21,8 @@ import {
   StudentTrack,
   TeacherDashboard,
 } from "./routes/AllRoutes";
+import ForgotPassword from "./pages/ForgetPassword";
+import ResetPassword from "./pages/ResetPassword";
 
 export const router = createBrowserRouter([
   {
@@ -53,6 +55,8 @@ export const router = createBrowserRouter([
       { path: "/admin/viewusers", Component: AllUsersViewPage },
 
       { path: "*", Component: PageNotFoundCreative },
+      { path: "/forgot-password", Component: ForgotPassword },
+      { path: "/reset-password", Component: ResetPassword },
     ],
   },
 ]);

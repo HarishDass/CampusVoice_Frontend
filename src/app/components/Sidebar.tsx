@@ -31,16 +31,19 @@ export function Sidebar({ role }: SidebarProps) {
     { icon: LayoutDashboard, label: "Dashboard", path: "/student" },
     { icon: FileText, label: "Submit Issue", path: "/submit" },
     { icon: ClipboardList, label: "My Issues", path: "/track" },
+    { icon: ClipboardList, label: "Reset password", path: "/reset-password" },
   ];
 
   const staffLinks = [
     { icon: LayoutDashboard, label: "Dashboard", path: "/staff" },
     { icon: ClipboardList, label: "Assigned Issues", path: "/staff/issues" },
+      { icon: ClipboardList, label: "Reset password", path: "/reset-password" },
   ];
 
   const adminLinks = [
     { icon: LayoutDashboard, label: "Dashboard", path: "/admin" },
     { icon: ClipboardList, label: "All Issues", path: "/admin/issues" },
+    
     {
       icon: AlertTriangle,
       label: "Escalated Issues",
@@ -49,6 +52,7 @@ export function Sidebar({ role }: SidebarProps) {
     { icon: BarChart3, label: "Analytics", path: "/admin/analytics" },
     { icon: UserPlus, label: "Add Users", path: "/admin/upload" },
     { icon: Users, label: "View Users", path: "/admin/viewusers" },
+      { icon: ClipboardList, label: "Reset password", path: "/reset-password" },
   ];
 
   const [logout] = useLogoutMutation();

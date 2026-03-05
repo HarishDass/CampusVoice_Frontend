@@ -16,6 +16,9 @@ import { useGetIssuesQuery } from "../../services/api";
 import _ from "lodash";
 import { useNavigate } from "react-router-dom";
 import moment from "moment";
+import { Pagination } from "../components/Pagination";
+
+const LIMIT = 10;
 
 const PRIORITY_COLORS: Record<string, string> = {
   Critical: "#dc2626",
@@ -37,13 +40,20 @@ export default function EscalatedIssues() {
   const [searchQuery, setSearchQuery] = useState("");
   const [filterPriority, setFilterPriority] = useState("all");
   const [sortBy, setSortBy] = useState("newest");
+  const [page, setPage] = useState(1);
 
-  const { data: allIssues = [], isLoading, refetch } = useGetIssuesQuery();
+  // Fetch only escalated issues from backend
+  const { data, isLoading, refetch } = useGetIssuesQuery({
+    page,
+    limit: LIMIT,
+    status: "escalated",
+  });
 
-  const escalatedIssues = allIssues.filter(
-    (i: any) => i.status?.toLowerCase() === "escalated",
-  );
+  const escalatedIssues = data?.issues ?? [];
+  const totalPages = data?.totalPages ?? 1;
+  const total = data?.total ?? 0;
 
+  // Client-side filter & sort within current page
   const filteredIssues = escalatedIssues
     .filter((issue: any) => {
       const matchesPriority =
@@ -82,6 +92,11 @@ export default function EscalatedIssues() {
     (i: any) => moment().diff(moment(i.createdAt), "days") > 7,
   ).length;
 
+  const handlePageChange = (p: number) => {
+    setPage(p);
+    window.scrollTo({ top: 0, behavior: "smooth" });
+  };
+
   if (isLoading) {
     return (
       <div className="min-h-screen">
@@ -99,7 +114,6 @@ export default function EscalatedIssues() {
     <div className="min-h-screen">
       <Sidebar role="admin" />
 
-      {/* CHANGED: md:ml-64 */}
       <div className="md:ml-64 min-h-screen bg-gradient-to-br from-[#080a0d] via-[#0f1419] to-[#1a1f2e]">
         <div
           className="fixed inset-0 md:ml-64 opacity-5 pointer-events-none"
@@ -112,7 +126,6 @@ export default function EscalatedIssues() {
           }}
         />
 
-        {/* CHANGED: p-4 on mobile */}
         <div className="relative z-10 p-4 md:p-8">
           {/* Header */}
           <motion.div
@@ -127,9 +140,9 @@ export default function EscalatedIssues() {
               <h1 className="text-2xl md:text-4xl font-bold text-white">
                 Escalated Issues
               </h1>
-              {escalatedIssues.length > 0 && (
+              {total > 0 && (
                 <span className="px-3 py-1 bg-orange-500/20 border border-orange-500/40 text-orange-400 text-sm font-semibold rounded-full animate-pulse">
-                  {escalatedIssues.length} pending
+                  {total} pending
                 </span>
               )}
             </div>
@@ -138,12 +151,12 @@ export default function EscalatedIssues() {
             </p>
           </motion.div>
 
-          {/* Stats - CHANGED: 2 cols on mobile, 4 on md */}
+          {/* Stats */}
           <div className="grid grid-cols-2 md:grid-cols-4 gap-3 md:gap-4 mb-6 md:mb-8">
             {[
               {
                 label: "Total Escalated",
-                value: escalatedIssues.length,
+                value: total,
                 color: "text-orange-400",
                 bg: "border-orange-500/20",
                 icon: Zap,
@@ -189,7 +202,7 @@ export default function EscalatedIssues() {
             ))}
           </div>
 
-          {escalatedIssues.length === 0 ? (
+          {total === 0 ? (
             <motion.div
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
@@ -203,7 +216,7 @@ export default function EscalatedIssues() {
             </motion.div>
           ) : (
             <>
-              {/* Filters - CHANGED: stack on mobile */}
+              {/* Filters */}
               <GlassCard className="mb-6">
                 <div className="flex gap-2 md:gap-3 flex-wrap items-center">
                   <div className="w-full sm:flex-1 sm:min-w-48 relative">
@@ -213,7 +226,10 @@ export default function EscalatedIssues() {
                     />
                     <input
                       value={searchQuery}
-                      onChange={(e) => setSearchQuery(e.target.value)}
+                      onChange={(e) => {
+                        setSearchQuery(e.target.value);
+                        setPage(1);
+                      }}
                       placeholder="Search by title, student or staff..."
                       className="w-full pl-9 pr-4 py-2 bg-slate-800 border border-slate-700 rounded-lg text-white text-sm focus:border-orange-500 focus:outline-none"
                     />
@@ -221,7 +237,10 @@ export default function EscalatedIssues() {
 
                   <select
                     value={filterPriority}
-                    onChange={(e) => setFilterPriority(e.target.value)}
+                    onChange={(e) => {
+                      setFilterPriority(e.target.value);
+                      setPage(1);
+                    }}
                     className="flex-1 sm:flex-none bg-slate-800 border border-slate-700 rounded-lg px-3 py-2 text-white text-sm focus:outline-none"
                   >
                     <option value="all">All Priority</option>
@@ -246,6 +265,7 @@ export default function EscalatedIssues() {
                       onClick={() => {
                         setSearchQuery("");
                         setFilterPriority("all");
+                        setPage(1);
                       }}
                       className="flex items-center gap-1.5 px-3 py-2 bg-slate-700 hover:bg-slate-600 text-slate-300 rounded-lg text-sm transition-colors"
                     >
@@ -254,8 +274,7 @@ export default function EscalatedIssues() {
                   )}
                 </div>
                 <p className="text-slate-500 text-xs mt-3">
-                  Showing {filteredIssues.length} of {escalatedIssues.length}{" "}
-                  escalated issues
+                  Showing {filteredIssues.length} of {total} escalated issues
                 </p>
               </GlassCard>
 
@@ -286,7 +305,11 @@ export default function EscalatedIssues() {
                       transition={{ delay: idx * 0.04 }}
                       whileHover={{ x: 4 }}
                       onClick={() => navigate(`/admin/issues/${issue._id}`)}
-                      className={`p-4 md:p-5 rounded-xl border cursor-pointer transition-all group ${isUrgent ? "bg-red-500/8 border-red-500/30 hover:border-red-500/50" : "bg-orange-500/8 border-orange-500/25 hover:border-orange-500/45"}`}
+                      className={`p-4 md:p-5 rounded-xl border cursor-pointer transition-all group ${
+                        isUrgent
+                          ? "bg-red-500/8 border-red-500/30 hover:border-red-500/50"
+                          : "bg-orange-500/8 border-orange-500/25 hover:border-orange-500/45"
+                      }`}
                     >
                       <div className="flex items-start gap-3 md:gap-4">
                         <div
@@ -315,7 +338,6 @@ export default function EscalatedIssues() {
                                 </span>
                               )}
                             </div>
-                            {/* CTA - hidden on very small */}
                             <div className="shrink-0 hidden sm:flex flex-col items-end gap-1">
                               <span className="flex items-center gap-1 text-xs text-orange-400 font-medium group-hover:gap-2 transition-all">
                                 Review <ChevronRight size={14} />
@@ -350,7 +372,7 @@ export default function EscalatedIssues() {
                             </div>
                           )}
 
-                          {/* Meta row - CHANGED: wrap on mobile */}
+                          {/* Meta row */}
                           <div className="flex items-center gap-3 text-xs text-slate-500 flex-wrap">
                             <span className="flex items-center gap-1">
                               <span className="w-1.5 h-1.5 rounded-full bg-blue-400" />
@@ -373,7 +395,7 @@ export default function EscalatedIssues() {
                             </span>
                           </div>
 
-                          {/* Mobile CTA */}
+                          {/* Mobile ID */}
                           <div className="mt-2 flex justify-end sm:hidden">
                             <span className="text-xs text-orange-400 font-mono">
                               #{issue._id?.slice(0, 8)}
@@ -385,6 +407,15 @@ export default function EscalatedIssues() {
                   );
                 })}
               </div>
+
+              {/* Pagination */}
+              <Pagination
+                page={page}
+                totalPages={totalPages}
+                total={total}
+                limit={LIMIT}
+                onChange={handlePageChange}
+              />
             </>
           )}
         </div>

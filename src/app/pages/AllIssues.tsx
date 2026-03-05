@@ -12,6 +12,9 @@ import { useState } from "react";
 import { useGetAssignedGrievancesQuery } from "../../services/api";
 import _ from "lodash";
 import { useNavigate } from "react-router-dom";
+import { Pagination } from "../components/Pagination";
+
+const LIMIT = 10;
 
 export default function AllIssues() {
   const navigate = useNavigate();
@@ -19,10 +22,19 @@ export default function AllIssues() {
   const [filterPriority, setFilterPriority] = useState("all");
   const [filterCategory, setFilterCategory] = useState("all");
   const [searchQuery, setSearchQuery] = useState("");
+  const [page, setPage] = useState(1);
 
-  const { data: issues = [], isLoading } = useGetAssignedGrievancesQuery();
+  const { data, isLoading } = useGetAssignedGrievancesQuery({
+    page,
+    limit: LIMIT,
+  });
 
-  const filteredIssues = issues.filter((issue: any) => {
+  const allIssues = data?.issues ?? [];
+  const totalPages = data?.totalPages ?? 1;
+  const total = data?.total ?? 0;
+
+  // Client-side filtering on the current page's data
+  const filteredIssues = allIssues.filter((issue: any) => {
     const matchesStatus =
       filterStatus === "all" || issue.status === filterStatus;
     const matchesPriority =
@@ -70,10 +82,15 @@ export default function AllIssues() {
   };
 
   const stats = {
-    total: issues.length,
-    open: issues.filter((i: any) => i.status === "open").length,
-    resolved: issues.filter((i: any) => i.status === "resolved").length,
-    high: issues.filter((i: any) => i.priority === "High").length,
+    total,
+    open: allIssues.filter((i: any) => i.status === "open").length,
+    resolved: allIssues.filter((i: any) => i.status === "resolved").length,
+    high: allIssues.filter((i: any) => i.priority === "High").length,
+  };
+
+  const handlePageChange = (p: number) => {
+    setPage(p);
+    window.scrollTo({ top: 0, behavior: "smooth" });
   };
 
   if (isLoading) {
@@ -88,9 +105,7 @@ export default function AllIssues() {
     <div className="min-h-screen">
       <Sidebar role="staff" />
 
-      {/* CHANGED: md:ml-64 */}
       <div className="md:ml-64 min-h-screen bg-gradient-to-br from-[#080a0d] via-[#0f1419] to-[#1a1f2e]">
-        {/* CHANGED: p-4 on mobile */}
         <div className="relative z-10 p-4 md:p-8">
           {/* Header */}
           <h1 className="text-2xl md:text-4xl font-bold mb-2 text-white">
@@ -100,7 +115,7 @@ export default function AllIssues() {
             Comprehensive view of all grievances in the system
           </p>
 
-          {/* Stats - CHANGED: 2 cols on mobile, 4 on sm+ */}
+          {/* Stats */}
           <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 md:gap-4 mb-6 md:mb-8">
             <GlassCard>
               <p className="text-slate-400 text-sm">Total</p>
@@ -128,7 +143,7 @@ export default function AllIssues() {
             </GlassCard>
           </div>
 
-          {/* Filters - CHANGED: wrap on mobile */}
+          {/* Filters */}
           <GlassCard className="mb-6">
             <div className="flex gap-2 md:gap-4 flex-wrap">
               <div className="w-full sm:flex-1 relative">
@@ -138,7 +153,10 @@ export default function AllIssues() {
                 />
                 <input
                   value={searchQuery}
-                  onChange={(e) => setSearchQuery(e.target.value)}
+                  onChange={(e) => {
+                    setSearchQuery(e.target.value);
+                    setPage(1);
+                  }}
                   placeholder="Search issue..."
                   className="w-full pl-10 pr-4 py-2 bg-slate-800 border border-slate-700 rounded-lg text-white text-sm"
                 />
@@ -147,7 +165,10 @@ export default function AllIssues() {
               <div className="flex gap-2 flex-wrap flex-1 sm:flex-none">
                 <select
                   value={filterCategory}
-                  onChange={(e) => setFilterCategory(e.target.value)}
+                  onChange={(e) => {
+                    setFilterCategory(e.target.value);
+                    setPage(1);
+                  }}
                   className="flex-1 sm:flex-none bg-slate-800 border border-slate-700 rounded-lg px-2 md:px-4 py-2 text-white text-sm"
                 >
                   <option value="all">All Categories</option>
@@ -158,7 +179,10 @@ export default function AllIssues() {
 
                 <select
                   value={filterPriority}
-                  onChange={(e) => setFilterPriority(e.target.value)}
+                  onChange={(e) => {
+                    setFilterPriority(e.target.value);
+                    setPage(1);
+                  }}
                   className="flex-1 sm:flex-none bg-slate-800 border border-slate-700 rounded-lg px-2 md:px-4 py-2 text-white text-sm"
                 >
                   <option value="all">All Priority</option>
@@ -169,7 +193,10 @@ export default function AllIssues() {
 
                 <select
                   value={filterStatus}
-                  onChange={(e) => setFilterStatus(e.target.value)}
+                  onChange={(e) => {
+                    setFilterStatus(e.target.value);
+                    setPage(1);
+                  }}
                   className="flex-1 sm:flex-none bg-slate-800 border border-slate-700 rounded-lg px-2 md:px-4 py-2 text-white text-sm"
                 >
                   <option value="all">All Status</option>
@@ -202,7 +229,6 @@ export default function AllIssues() {
                     />
 
                     <div className="flex-1 min-w-0">
-                      {/* CHANGED: wrap badges on mobile */}
                       <div className="flex items-center gap-2 flex-wrap mb-1">
                         <h3 className="text-white font-semibold text-sm md:text-base">
                           {issue.title}
@@ -249,6 +275,15 @@ export default function AllIssues() {
               );
             })}
           </div>
+
+          {/* Pagination */}
+          <Pagination
+            page={page}
+            totalPages={totalPages}
+            total={total}
+            limit={LIMIT}
+            onChange={handlePageChange}
+          />
         </div>
       </div>
     </div>

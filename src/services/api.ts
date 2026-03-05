@@ -2,6 +2,7 @@ import { createApi, fetchBaseQuery } from "@reduxjs/toolkit/query/react";
 
 const baseQuery = fetchBaseQuery({
   baseUrl: "https://campusvoice-backend-5ppk.onrender.com/api",
+  // baseUrl: "http://localhost:4000/api",
   prepareHeaders: (headers) => {
     const token = localStorage.getItem("accessToken");
     if (token) headers.set("authorization", `Bearer ${token}`);
@@ -37,7 +38,6 @@ const baseQueryWithReauth = async (args: any, api: any, extraOptions: any) => {
 
 // ─── Shared Types ─────────────────────────────────────────────────────────────
 
-/** Matches your User mongoose schema */
 export interface UserRecord {
   _id: string;
   name?: string;
@@ -47,7 +47,6 @@ export interface UserRecord {
   updatedAt: string;
 }
 
-/** Payload for creating a single user (mirrors your register controller) */
 export interface CreateUserPayload {
   name?: string;
   email: string;
@@ -55,7 +54,6 @@ export interface CreateUserPayload {
   role?: "student" | "staff";
 }
 
-/** One row result from a bulk import */
 export interface BulkRowResult {
   row: number;
   email: string;
@@ -65,14 +63,12 @@ export interface BulkRowResult {
   userId?: string;
 }
 
-/** Response returned by POST /admin/users/bulk */
 export interface BulkUploadResponse {
   imported: number;
   failed: number;
   results: BulkRowResult[];
 }
 
-/** Query params for GET /admin/users */
 export interface GetUsersParams {
   role?: "student" | "staff" | "admin";
   search?: string;
@@ -82,12 +78,32 @@ export interface GetUsersParams {
   order?: "asc" | "desc";
 }
 
-/** Paginated response for GET /admin/users */
 export interface GetUsersResponse {
   users: UserRecord[];
   total: number;
   page: number;
   totalPages: number;
+}
+
+export interface PaginatedIssuesResponse {
+  issues: any[];
+  total: number;
+  page: number;
+  totalPages: number;
+}
+
+export interface GetIssuesParams {
+  page?: number;
+  limit?: number;
+  status?: string;
+}
+
+export interface GetAssignedGrievancesParams {
+  status?: string;
+  priority?: string;
+  sort?: string;
+  limit?: number;
+  page?: number;
 }
 
 // ─── API Slice ────────────────────────────────────────────────────────────────
@@ -113,16 +129,38 @@ export const api = createApi({
     me: builder.query<any, void>({
       query: () => ({ url: "/auth/me", method: "GET" }),
     }),
+    // Logged-in user resets their own password (no old password needed)
+    resetPassword: builder.mutation<
+      { message: string },
+      { newPassword: string }
+    >({
+      query: (body) => ({
+        url: "/auth/reset-password",
+        method: "POST",
+        body,
+      }),
+    }),
+    // Step 1 of forgot-password flow: sends OTP to email
+    forgotPassword: builder.mutation<{ message: string }, { email: string }>({
+      query: (body) => ({
+        url: "/auth/forgot-password",
+        method: "POST",
+        body,
+      }),
+    }),
+    // Step 2 of forgot-password flow: verifies OTP and sets new password
+    verifyOtpReset: builder.mutation<
+      { message: string },
+      { email: string; otp: string; newPassword: string }
+    >({
+      query: (body) => ({
+        url: "/auth/verify-otp-reset",
+        method: "POST",
+        body,
+      }),
+    }),
 
     // ─── User Management (Admin) ───────────────────────────────────────────
-    //
-    // GET /api/admin/users
-    //   ?role=student|teacher|admin
-    //   &search=<string>        — searches name + email
-    //   &page=1&limit=10
-    //   &sort=createdAt&order=desc
-    //
-    // Returns: { users, total, page, totalPages }
     getUsers: builder.query<GetUsersResponse, GetUsersParams | void>({
       query: (params = {}) => {
         const qs = new URLSearchParams();
@@ -153,17 +191,11 @@ export const api = createApi({
           : [{ type: "Users", id: "LIST" }],
     }),
 
-    // GET /api/admin/users/:id
-    // Returns: { user: UserRecord }
     getUserById: builder.query<{ user: UserRecord }, string>({
       query: (id) => `/admin/users/${id}`,
       providesTags: (result, error, id) => [{ type: "Users", id }],
     }),
 
-    // POST /api/admin/users
-    // Body: { name?, email, password, role? }
-    // Uses the same bcrypt + User.create logic as your register controller
-    // Returns: { id, email, name, role }
     createUser: builder.mutation<
       { id: string; email: string; name?: string; role: string },
       CreateUserPayload
@@ -172,11 +204,6 @@ export const api = createApi({
       invalidatesTags: [{ type: "Users", id: "LIST" }],
     }),
 
-    // POST /api/admin/users/bulk
-    // Body: { users: CreateUserPayload[] }
-    // Server iterates the array, calls the same register logic per row,
-    // and collects per-row success/error without aborting on first failure.
-    // Returns: { imported, failed, results: BulkRowResult[] }
     bulkCreateUsers: builder.mutation<BulkUploadResponse, CreateUserPayload[]>({
       query: (users) => ({
         url: "/admin/users/bulk",
@@ -186,10 +213,6 @@ export const api = createApi({
       invalidatesTags: [{ type: "Users", id: "LIST" }],
     }),
 
-    // PUT /api/admin/users/:id
-    // Body: any subset of { name, email, role }  — password NOT allowed here;
-    // use a dedicated change-password endpoint for that.
-    // Returns: { user: UserRecord }
     updateUser: builder.mutation<
       { user: UserRecord },
       { id: string; name?: string; email?: string; role?: string }
@@ -205,8 +228,6 @@ export const api = createApi({
       ],
     }),
 
-    // DELETE /api/admin/users/:id
-    // Returns: { ok: true }
     deleteUser: builder.mutation<{ ok: boolean }, string>({
       query: (id) => ({ url: `/admin/users/${id}`, method: "DELETE" }),
       invalidatesTags: (result, error, id) => [
@@ -215,11 +236,22 @@ export const api = createApi({
       ],
     }),
 
-    // ─── Issues (shared) ──────────────────────────────────────────────────
-    getIssues: builder.query<any, void>({
-      query: () => "/issues",
+    // ─── Issues (shared) — paginated ──────────────────────────────────────
+    getIssues: builder.query<PaginatedIssuesResponse, GetIssuesParams | void>({
+      query: (params = {}) => {
+        const qs = new URLSearchParams();
+        if (params && "page" in params && params.page)
+          qs.append("page", String(params.page));
+        if (params && "limit" in params && params.limit)
+          qs.append("limit", String(params.limit));
+        if (params && "status" in params && params.status)
+          qs.append("status", params.status);
+        const q = qs.toString();
+        return `/issues${q ? `?${q}` : ""}`;
+      },
       providesTags: ["Issues"],
     }),
+
     submitIssue: builder.mutation<any, Partial<any>>({
       query: (body) => ({ url: "/issues", method: "POST", body }),
       invalidatesTags: ["Issues", "AdminAnalytics"],
@@ -290,15 +322,10 @@ export const api = createApi({
       providesTags: ["Issues"],
     }),
 
-    // ─── Staff: Assigned Grievances ───────────────────────────────────────
+    // ─── Staff: Assigned Grievances — paginated ───────────────────────────
     getAssignedGrievances: builder.query<
-      any[],
-      {
-        status?: string;
-        priority?: string;
-        sort?: string;
-        limit?: number;
-      } | void
+      PaginatedIssuesResponse,
+      GetAssignedGrievancesParams | void
     >({
       query: (params = {}) => {
         const qs = new URLSearchParams();
@@ -310,6 +337,8 @@ export const api = createApi({
           qs.append("sort", params.sort);
         if (params && "limit" in params && params.limit)
           qs.append("limit", String(params.limit));
+        if (params && "page" in params && params.page)
+          qs.append("page", String(params.page));
         const query = qs.toString();
         return `/issues/staff/assigned${query ? `?${query}` : ""}`;
       },
@@ -566,6 +595,9 @@ export const {
   useLogoutMutation,
   useLazyMeQuery,
   useMeQuery,
+  useResetPasswordMutation,
+  useForgotPasswordMutation,
+  useVerifyOtpResetMutation,
 
   // User Management (Admin)
   useGetUsersQuery,

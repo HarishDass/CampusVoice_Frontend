@@ -6,44 +6,51 @@ import { useLoginMutation } from "../../services/api";
 
 export default function Login() {
   const navigate = useNavigate();
-
   const [login] = useLoginMutation();
-
-  const token = localStorage.getItem("accessToken");
-  const role = localStorage.getItem("role");
-
-  useEffect(() => {
-    if (token && role) {
-      if (role === "student") navigate("/student");
-      if (role === "staff") navigate("/staff");
-      if (role === "admin") navigate("/admin");
-    }
-  }, [token, role, navigate]);
 
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [checking, setChecking] = useState(true);
 
-  /* ---------- Manual Login ---------- */
+  useEffect(() => {
+    const token = localStorage.getItem("accessToken");
+    const role = localStorage.getItem("role");
+
+    if (token && role) {
+      if (role === "student") navigate("/student", { replace: true });
+      else if (role === "staff") navigate("/staff", { replace: true });
+      else if (role === "admin") navigate("/admin", { replace: true });
+      else setChecking(false);
+    } else {
+      setChecking(false);
+    }
+  }, []);
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
-
     try {
       const res: any = await login({ email, password }).unwrap();
-
       const role = res?.user?.role;
 
       localStorage.setItem("accessToken", res.accessToken);
       localStorage.setItem("refreshToken", res.refreshToken);
       localStorage.setItem("role", role);
 
-      if (role === "student") navigate("/student");
-      if (role === "staff") navigate("/staff");
-      if (role === "admin") navigate("/admin");
+      if (role === "student") navigate("/student", { replace: true });
+      else if (role === "staff") navigate("/staff", { replace: true });
+      else if (role === "admin") navigate("/admin", { replace: true });
     } catch (err) {
       alert("Invalid email or password");
     }
   };
+
+  if (checking) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-[#080a0d] via-[#0f1419] to-[#1a1f2e]">
+        <div className="w-6 h-6 border-2 border-blue-500 border-t-transparent rounded-full animate-spin" />
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen w-full relative overflow-hidden flex items-center justify-center">
@@ -82,29 +89,38 @@ export default function Login() {
                 type="email"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
-                className="w-full px-4 py-3 rounded-lg bg-slate-900 border border-slate-700 text-white"
+                className="w-full px-4 py-3 rounded-lg bg-slate-900 border border-slate-700 text-white focus:outline-none focus:border-blue-500 transition-colors"
                 placeholder="Enter your email"
               />
             </div>
 
             <div>
-              <label className="block text-sm text-slate-400 mb-2">
-                Password
-              </label>
+              <div className="flex items-center justify-between mb-2">
+                <label className="text-sm text-slate-400">Password</label>
+                {/* ← Forgot password link */}
+               
+              </div>
               <input
                 type="password"
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
-                className="w-full px-4 py-3 rounded-lg bg-slate-900 border border-slate-700 text-white"
+                className="w-full px-4 py-3 rounded-lg bg-slate-900 border border-slate-700 text-white focus:outline-none focus:border-blue-500 transition-colors"
                 placeholder="Enter your password"
               />
+               {/* <button
+                  type="button"
+                  onClick={() => navigate("/forgot-password")}
+                  className="text-xs flex w-full mt-2 justify-end text-blue-400 hover:text-blue-300 transition-colors"
+                >
+                  Forgot password?
+                </button> */}
             </div>
 
             <motion.button
               type="submit"
               whileHover={{ scale: 1.02 }}
               whileTap={{ scale: 0.98 }}
-              className="w-full py-4 rounded-lg font-semibold text-white bg-blue-600 hover:bg-blue-700 mt-6"
+              className="w-full py-4 rounded-lg font-semibold text-white bg-blue-600 hover:bg-blue-700 mt-6 transition-colors"
             >
               Access Platform
             </motion.button>

@@ -1,21 +1,43 @@
-import { Outlet, Navigate } from "react-router-dom";
 import { useEffect } from "react";
+import { Outlet, useNavigate, useLocation } from "react-router-dom";
 import { useMeQuery } from "../../services/api";
-import { FullPageLoader } from "../components/Loader";
+
+const PUBLIC_ROUTES = ["/", "/login", "/forgot-password", "/verify-otp-reset"];
+
 export default function Root() {
-  const token = localStorage.getItem("accessToken");
-  const { data, isLoading, isError } = useMeQuery(undefined, { skip: !token });
+  const navigate = useNavigate();
+  const location = useLocation();
+
+  const isPublicRoute = PUBLIC_ROUTES.some(
+    (route) => location.pathname === route,
+  );
+
+  const { data, isLoading, isError } = useMeQuery(undefined, {
+    skip: isPublicRoute,
+  });
+
   useEffect(() => {
-    if (data?.user) {
-      localStorage.setItem("role", data.user.role);
+    if (isPublicRoute) return;
+
+    if (isError) {
+      localStorage.removeItem("accessToken");
+      localStorage.removeItem("refreshToken");
+      localStorage.removeItem("role");
+      navigate("/login", { replace: true });
     }
-  }, [data]);
-  if (isLoading) {
-    return <FullPageLoader />;
-  }
-  if (!token || isError) {
-    return <Navigate to="/" replace />;
+  }, [isError, isPublicRoute, navigate]);
+
+  if (!isPublicRoute && isLoading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-[#080a0d] via-[#0f1419] to-[#1a1f2e]">
+        <div className="w-6 h-6 border-2 border-blue-500 border-t-transparent rounded-full animate-spin" />
+      </div>
+    );
   }
 
-  return <Outlet />;
+  return (
+    <div className="min-h-screen w-full">
+      <Outlet />
+    </div>
+  );
 }
