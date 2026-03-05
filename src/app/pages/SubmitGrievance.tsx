@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from "react";
 import { motion, AnimatePresence } from "motion/react";
-import { useNavigate } from "react-router";
+import { useNavigate } from "react-router-dom";
 import { Sidebar } from "../components/Sidebar";
 import { GlassCard } from "../components/GlassCard";
 import {

@@ -17,7 +17,7 @@ import {
 } from "../../services/api";
 import _ from "lodash";
 import moment from "moment";
-import { useNavigate } from "react-router";
+import { useNavigate } from "react-router-dom";
 
 const priorityConfig = {
   high: { bg: "bg-red-500/20", text: "text-red-400", dot: "bg-red-500" },

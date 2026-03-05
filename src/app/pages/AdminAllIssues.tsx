@@ -15,7 +15,7 @@ import {
 import { useState } from "react";
 import { useGetIssuesQuery } from "../../services/api";
 import _ from "lodash";
-import { useNavigate } from "react-router";
+import { useNavigate } from "react-router-dom";
 import moment from "moment";
 
 const STATUS_COLORS: Record<string, string> = {

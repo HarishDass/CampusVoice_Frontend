@@ -73,7 +73,7 @@ export function FullPageLoader() {
           transition={{ delay: 0.3 }}
           className="text-2xl font-bold text-white mb-2"
         >
-          Loading Grievance Portal
+          Loading
         </motion.h2>
 
         {/* Animated dots */}

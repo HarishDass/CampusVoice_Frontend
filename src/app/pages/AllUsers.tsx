@@ -18,7 +18,7 @@ import {
   AlertTriangle,
   Loader2,
 } from "lucide-react";
-import { useNavigate } from "react-router";
+import { useNavigate } from "react-router-dom";
 import { Sidebar } from "../components/Sidebar";
 import moment from "moment";
 import {

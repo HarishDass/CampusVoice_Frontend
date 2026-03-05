@@ -35,7 +35,7 @@ import {
 } from "../../services/api";
 import _ from "lodash";
 import moment from "moment";
-import { useNavigate } from "react-router";
+import { useNavigate } from "react-router-dom";
 
 const tooltipStyle = {
   contentStyle: {

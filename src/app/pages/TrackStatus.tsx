@@ -12,7 +12,7 @@ import {
 } from "lucide-react";
 import { useState } from "react";
 import { useGetIssuesQuery } from "../../services/api";
-import { useNavigate } from "react-router";
+import { useNavigate } from "react-router-dom";
 import _ from "lodash";
 
 export default function TrackStatus() {

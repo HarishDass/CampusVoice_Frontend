@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { useNavigate } from "react-router";
+import { useNavigate } from "react-router-dom";
 import { motion } from "motion/react";
 import { ImageWithFallback } from "../components/figma/ImageWithFallback";
 import { useLoginMutation } from "../../services/api";
@@ -10,6 +10,15 @@ export default function Login() {
   const [login] = useLoginMutation();
 
   const token = localStorage.getItem("accessToken");
+  const role = localStorage.getItem("role");
+
+  useEffect(() => {
+    if (token && role) {
+      if (role === "student") navigate("/student");
+      if (role === "staff") navigate("/staff");
+      if (role === "admin") navigate("/admin");
+    }
+  }, [token, role, navigate]);
 
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");

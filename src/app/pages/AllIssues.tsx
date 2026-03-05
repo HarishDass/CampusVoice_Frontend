@@ -11,7 +11,7 @@ import {
 import { useState } from "react";
 import { useGetAssignedGrievancesQuery } from "../../services/api";
 import _ from "lodash";
-import { useNavigate } from "react-router";
+import { useNavigate } from "react-router-dom";
 
 export default function AllIssues() {
   const navigate = useNavigate();
