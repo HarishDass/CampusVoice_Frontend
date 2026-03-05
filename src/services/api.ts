@@ -1,7 +1,7 @@
 import { createApi, fetchBaseQuery } from "@reduxjs/toolkit/query/react";
 
 const baseQuery = fetchBaseQuery({
-  baseUrl: "http://localhost:4000/api",
+  baseUrl: "https://campusvoice-backend-5ppk.onrender.com/api",
   prepareHeaders: (headers) => {
     const token = localStorage.getItem("accessToken");
     if (token) headers.set("authorization", `Bearer ${token}`);
