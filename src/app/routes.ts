@@ -1,6 +1,7 @@
 import { createBrowserRouter } from "react-router-dom";
 import Root from "./pages/Root";
 import Login from "./pages/Login";
+import PageNotFoundCreative from "./pages/Notfound";
 import {
   AdminAnalytics,
   AdminDash,
@@ -8,6 +9,8 @@ import {
   AdminIssueDetail,
   AdminIssues,
   AdminSystem,
+  AllBulkUpload,
+  AllUsersViewPage,
   StaffIssueDetail,
   StaffIssues,
   StudentDashboard,
@@ -46,8 +49,10 @@ export const router = createBrowserRouter([
       { path: "/admin/analytics", Component: AdminAnalytics },
       { path: "/admin/escalated", Component: AdminEscalatedIssues },
       { path: "/admin/system", Component: AdminSystem },
+      { path: "/admin/upload", Component: AllBulkUpload },
+      { path: "/admin/viewusers", Component: AllUsersViewPage },
 
-      { path: "*", Component: Login },
+      { path: "*", Component: PageNotFoundCreative },
     ],
   },
 ]);

@@ -14,6 +14,8 @@ import StaffDashboard from "../pages/StaffDashboard";
 import AdminAllIssues from "../pages/AdminAllIssues";
 import EscalatedIssues from "../pages/EscalatedIssues";
 import AdminIssueDetails from "../pages/AdminIssueDetails";
+import BulkUpload from "../pages/BulkUpload";
+import ViewAllUsersPage from "../pages/AllUsers";
 
 export const StudentDashboard = () => (
   <ProtectedRoute allowedRole="student">
@@ -54,6 +56,7 @@ export const StudentHistory = () => (
     <History />
   </ProtectedRoute>
 );
+
 
 export const TeacherDashboard = () => (
   <ProtectedRoute allowedRole="staff">
@@ -97,5 +100,16 @@ export const AdminIssueDetail = () => (
 export const AdminSystem = () => (
   <ProtectedRoute allowedRole="admin">
     <System />
+  </ProtectedRoute>
+);
+
+export const AllBulkUpload = () => (
+  <ProtectedRoute allowedRole="admin">
+    <BulkUpload />
+  </ProtectedRoute>
+);
+export const AllUsersViewPage = () => (
+  <ProtectedRoute allowedRole="admin">
+    <ViewAllUsersPage />
   </ProtectedRoute>
 );

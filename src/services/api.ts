@@ -1,7 +1,7 @@
 import { createApi, fetchBaseQuery } from "@reduxjs/toolkit/query/react";
 
 const baseQuery = fetchBaseQuery({
-  baseUrl: "https://campusvoice-backend-5ppk.onrender.com/api",
+  baseUrl: "http://localhost:4000/api",
   prepareHeaders: (headers) => {
     const token = localStorage.getItem("accessToken");
     if (token) headers.set("authorization", `Bearer ${token}`);
@@ -35,12 +35,69 @@ const baseQueryWithReauth = async (args: any, api: any, extraOptions: any) => {
   return result;
 };
 
+// ─── Shared Types ─────────────────────────────────────────────────────────────
+
+/** Matches your User mongoose schema */
+export interface UserRecord {
+  _id: string;
+  name?: string;
+  email: string;
+  role: "student" | "staff" | "admin";
+  createdAt: string;
+  updatedAt: string;
+}
+
+/** Payload for creating a single user (mirrors your register controller) */
+export interface CreateUserPayload {
+  name?: string;
+  email: string;
+  password: string;
+  role?: "student" | "staff";
+}
+
+/** One row result from a bulk import */
+export interface BulkRowResult {
+  row: number;
+  email: string;
+  name?: string;
+  success: boolean;
+  error?: string;
+  userId?: string;
+}
+
+/** Response returned by POST /admin/users/bulk */
+export interface BulkUploadResponse {
+  imported: number;
+  failed: number;
+  results: BulkRowResult[];
+}
+
+/** Query params for GET /admin/users */
+export interface GetUsersParams {
+  role?: "student" | "staff" | "admin";
+  search?: string;
+  page?: number;
+  limit?: number;
+  sort?: string;
+  order?: "asc" | "desc";
+}
+
+/** Paginated response for GET /admin/users */
+export interface GetUsersResponse {
+  users: UserRecord[];
+  total: number;
+  page: number;
+  totalPages: number;
+}
+
+// ─── API Slice ────────────────────────────────────────────────────────────────
+
 export const api = createApi({
   reducerPath: "api",
   baseQuery: baseQueryWithReauth,
-  tagTypes: ["Issues", "Comments", "AdminAnalytics"],
+  tagTypes: ["Issues", "Comments", "AdminAnalytics", "Users"],
   endpoints: (builder) => ({
-    // ─── Auth ────────────────────────────────────────────────────────────────
+    // ─── Auth ──────────────────────────────────────────────────────────────
     register: builder.mutation<
       any,
       { name?: string; email: string; password: string }
@@ -57,7 +114,108 @@ export const api = createApi({
       query: () => ({ url: "/auth/me", method: "GET" }),
     }),
 
-    // ─── Issues (shared) ─────────────────────────────────────────────────────
+    // ─── User Management (Admin) ───────────────────────────────────────────
+    //
+    // GET /api/admin/users
+    //   ?role=student|teacher|admin
+    //   &search=<string>        — searches name + email
+    //   &page=1&limit=10
+    //   &sort=createdAt&order=desc
+    //
+    // Returns: { users, total, page, totalPages }
+    getUsers: builder.query<GetUsersResponse, GetUsersParams | void>({
+      query: (params = {}) => {
+        const qs = new URLSearchParams();
+        if (params && "role" in params && params.role)
+          qs.append("role", params.role);
+        if (params && "search" in params && params.search)
+          qs.append("search", params.search);
+        if (params && "page" in params && params.page)
+          qs.append("page", String(params.page));
+        if (params && "limit" in params && params.limit)
+          qs.append("limit", String(params.limit));
+        if (params && "sort" in params && params.sort)
+          qs.append("sort", params.sort);
+        if (params && "order" in params && params.order)
+          qs.append("order", params.order);
+        const q = qs.toString();
+        return `/admin/users${q ? `?${q}` : ""}`;
+      },
+      providesTags: (result) =>
+        result
+          ? [
+              ...result.users.map(({ _id }) => ({
+                type: "Users" as const,
+                id: _id,
+              })),
+              { type: "Users", id: "LIST" },
+            ]
+          : [{ type: "Users", id: "LIST" }],
+    }),
+
+    // GET /api/admin/users/:id
+    // Returns: { user: UserRecord }
+    getUserById: builder.query<{ user: UserRecord }, string>({
+      query: (id) => `/admin/users/${id}`,
+      providesTags: (result, error, id) => [{ type: "Users", id }],
+    }),
+
+    // POST /api/admin/users
+    // Body: { name?, email, password, role? }
+    // Uses the same bcrypt + User.create logic as your register controller
+    // Returns: { id, email, name, role }
+    createUser: builder.mutation<
+      { id: string; email: string; name?: string; role: string },
+      CreateUserPayload
+    >({
+      query: (body) => ({ url: "/admin/users", method: "POST", body }),
+      invalidatesTags: [{ type: "Users", id: "LIST" }],
+    }),
+
+    // POST /api/admin/users/bulk
+    // Body: { users: CreateUserPayload[] }
+    // Server iterates the array, calls the same register logic per row,
+    // and collects per-row success/error without aborting on first failure.
+    // Returns: { imported, failed, results: BulkRowResult[] }
+    bulkCreateUsers: builder.mutation<BulkUploadResponse, CreateUserPayload[]>({
+      query: (users) => ({
+        url: "/admin/users/bulk",
+        method: "POST",
+        body: { users },
+      }),
+      invalidatesTags: [{ type: "Users", id: "LIST" }],
+    }),
+
+    // PUT /api/admin/users/:id
+    // Body: any subset of { name, email, role }  — password NOT allowed here;
+    // use a dedicated change-password endpoint for that.
+    // Returns: { user: UserRecord }
+    updateUser: builder.mutation<
+      { user: UserRecord },
+      { id: string; name?: string; email?: string; role?: string }
+    >({
+      query: ({ id, ...body }) => ({
+        url: `/admin/users/${id}`,
+        method: "PUT",
+        body,
+      }),
+      invalidatesTags: (result, error, { id }) => [
+        { type: "Users", id },
+        { type: "Users", id: "LIST" },
+      ],
+    }),
+
+    // DELETE /api/admin/users/:id
+    // Returns: { ok: true }
+    deleteUser: builder.mutation<{ ok: boolean }, string>({
+      query: (id) => ({ url: `/admin/users/${id}`, method: "DELETE" }),
+      invalidatesTags: (result, error, id) => [
+        { type: "Users", id },
+        { type: "Users", id: "LIST" },
+      ],
+    }),
+
+    // ─── Issues (shared) ──────────────────────────────────────────────────
     getIssues: builder.query<any, void>({
       query: () => "/issues",
       providesTags: ["Issues"],
@@ -81,9 +239,7 @@ export const api = createApi({
       }),
     }),
 
-    // ─── Student: Notifications ───────────────────────────────────────────────
-    // GET /api/issues/notifications?limit=4
-    // Returns: [{ _id, message, read, issueId, createdAt }]
+    // ─── Student: Notifications ───────────────────────────────────────────
     getNotifications: builder.query<
       Array<{
         _id: string;
@@ -98,9 +254,7 @@ export const api = createApi({
       providesTags: ["Issues"],
     }),
 
-    // ─── Student: Activity Timeline ───────────────────────────────────────────
-    // GET /api/issues/timeline?limit=5
-    // Returns: [{ _id, action, issueTitle, issueId, type, createdAt }]
+    // ─── Student: Activity Timeline ───────────────────────────────────────
     getIssueTimeline: builder.query<
       Array<{
         _id: string;
@@ -116,10 +270,7 @@ export const api = createApi({
       providesTags: ["Issues"],
     }),
 
-    // ─── Staff: Dashboard Stats ───────────────────────────────────────────────
-    // GET /api/issues/staff/dashboard-stats
-    // Returns: { totalGrievances, resolved, inProgress, open, escalated,
-    //            newThisWeek, assignedToMe, byStatus, byPriority, byCategory }
+    // ─── Staff: Dashboard Stats ───────────────────────────────────────────
     getStaffDashboardStats: builder.query<
       {
         totalGrievances: number;
@@ -139,8 +290,7 @@ export const api = createApi({
       providesTags: ["Issues"],
     }),
 
-    // ─── Staff: Assigned Grievances (filterable) ──────────────────────────────
-    // GET /api/issues/staff/assigned?status=&priority=&sort=&limit=
+    // ─── Staff: Assigned Grievances ───────────────────────────────────────
     getAssignedGrievances: builder.query<
       any[],
       {
@@ -166,9 +316,7 @@ export const api = createApi({
       providesTags: ["Issues"],
     }),
 
-    // ─── Staff: Escalated Issues ──────────────────────────────────────────────
-    // GET /api/issues/staff/escalated
-    // Returns: [{ _id, title, status, priority, category, createdAt, updatedAt }]
+    // ─── Staff: Escalated Issues ──────────────────────────────────────────
     getEscalatedIssues: builder.query<
       Array<{
         _id: string;
@@ -185,9 +333,7 @@ export const api = createApi({
       providesTags: ["Issues"],
     }),
 
-    // ─── Staff: Department Stats ──────────────────────────────────────────────
-    // GET /api/issues/staff/departments
-    // Returns: [{ _id, open, inProgress, resolved, total }]
+    // ─── Staff: Department Stats ──────────────────────────────────────────
     getDepartmentStats: builder.query<
       Array<{
         _id: string;
@@ -202,9 +348,7 @@ export const api = createApi({
       providesTags: ["Issues"],
     }),
 
-    // ─── Staff: Activity Feed ─────────────────────────────────────────────────
-    // GET /api/issues/staff/activity?limit=4
-    // Returns: [{ _id, message, issueId, createdAt }]
+    // ─── Staff: Activity Feed ─────────────────────────────────────────────
     getStaffActivity: builder.query<
       Array<{
         _id: string;
@@ -218,7 +362,7 @@ export const api = createApi({
       providesTags: ["Issues"],
     }),
 
-    // ─── Staff actions ────────────────────────────────────────────────────────
+    // ─── Staff Actions ────────────────────────────────────────────────────
     resolveIssue: builder.mutation<
       any,
       {
@@ -238,7 +382,7 @@ export const api = createApi({
       invalidatesTags: ["Issues", "AdminAnalytics"],
     }),
 
-    // ─── Issue CRUD ───────────────────────────────────────────────────────────
+    // ─── Issue CRUD ───────────────────────────────────────────────────────
     getIssueById: builder.query<any, string>({
       query: (issueId) => `/issues/${issueId}`,
       providesTags: (result, error, issueId) => [
@@ -277,14 +421,11 @@ export const api = createApi({
       ],
     }),
     deleteIssue: builder.mutation<any, string>({
-      query: (issueId) => ({
-        url: `/issues/${issueId}`,
-        method: "DELETE",
-      }),
+      query: (issueId) => ({ url: `/issues/${issueId}`, method: "DELETE" }),
       invalidatesTags: ["Issues", "AdminAnalytics"],
     }),
 
-    // ─── Comments ─────────────────────────────────────────────────────────────
+    // ─── Comments ─────────────────────────────────────────────────────────
     addComment: builder.mutation<any, { issueId: string; comment: string }>({
       query: ({ issueId, comment }) => ({
         url: `/comment/${issueId}/comments`,
@@ -302,7 +443,7 @@ export const api = createApi({
       ],
     }),
 
-    // ─── Admin Analytics ──────────────────────────────────────────────────────
+    // ─── Admin Analytics ──────────────────────────────────────────────────
     getAdminDashboardStats: builder.query<
       {
         totalIssues: number;
@@ -426,6 +567,14 @@ export const {
   useLazyMeQuery,
   useMeQuery,
 
+  // User Management (Admin)
+  useGetUsersQuery,
+  useGetUserByIdQuery,
+  useCreateUserMutation,
+  useBulkCreateUsersMutation,
+  useUpdateUserMutation,
+  useDeleteUserMutation,
+
   // Issues (shared)
   useGetIssuesQuery,
   useSubmitIssueMutation,
@@ -433,7 +582,7 @@ export const {
   useGetIssueStatsQuery,
   useSearchStaffsQuery,
 
-  // Student (new)
+  // Student
   useGetNotificationsQuery,
   useGetIssueTimelineQuery,
 
@@ -442,17 +591,20 @@ export const {
   useGetAssignedGrievancesQuery,
   useGetAssignedIssueByIdQuery,
   useResolveIssueMutation,
-  useGetEscalatedIssuesQuery, // new
-  useGetDepartmentStatsQuery, // new
-  useGetStaffActivityQuery, // new
+  useGetEscalatedIssuesQuery,
+  useGetDepartmentStatsQuery,
+  useGetStaffActivityQuery,
 
+  // Issue CRUD
   useGetIssueByIdQuery,
   useUpdateIssueMutation,
   useDeleteIssueMutation,
 
+  // Comments
   useAddCommentMutation,
   useGetCommentsQuery,
 
+  // Admin Analytics
   useGetAdminDashboardStatsQuery,
   useGetAdminMonthlyTrendsQuery,
   useGetAdminCategoryDistributionQuery,

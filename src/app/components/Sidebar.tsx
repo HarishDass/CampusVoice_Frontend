@@ -11,6 +11,10 @@ import {
   MicVocal,
   Menu,
   X,
+  AlertTriangle,
+  BarChart3,
+  UserPlus,
+  Users,
 } from "lucide-react";
 import { useLogoutMutation } from "../../services/api";
 
@@ -37,8 +41,14 @@ export function Sidebar({ role }: SidebarProps) {
   const adminLinks = [
     { icon: LayoutDashboard, label: "Dashboard", path: "/admin" },
     { icon: ClipboardList, label: "All Issues", path: "/admin/issues" },
-    { icon: Zap, label: "Escalated", path: "/admin/escalated" },
-    { icon: TrendingUp, label: "Analytics", path: "/admin/analytics" },
+    {
+      icon: AlertTriangle,
+      label: "Escalated Issues",
+      path: "/admin/escalated",
+    },
+    { icon: BarChart3, label: "Analytics", path: "/admin/analytics" },
+    { icon: UserPlus, label: "Add Users", path: "/admin/upload" },
+    { icon: Users, label: "View Users", path: "/admin/viewusers" },
   ];
 
   const [logout] = useLogoutMutation();
@@ -104,12 +114,6 @@ export function Sidebar({ role }: SidebarProps) {
             >
               <Icon size={20} />
               <span>{link.label}</span>
-              {isActive && (
-                <motion.div
-                  layoutId={`activeIndicator-${role}`}
-                  className="ml-auto w-2 h-2 bg-white rounded-full"
-                />
-              )}
             </motion.button>
           );
         })}
