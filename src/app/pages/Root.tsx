@@ -2,7 +2,7 @@ import { useEffect } from "react";
 import { Outlet, useNavigate, useLocation } from "react-router-dom";
 import { useMeQuery } from "../../services/api";
 
-const PUBLIC_ROUTES = ["/", "/login", "/forgot-password", "/verify-otp-reset"];
+const PUBLIC_ROUTES = ["/", "/forgot-password", "/verify-otp-reset"];
 
 export default function Root() {
   const navigate = useNavigate();
@@ -23,7 +23,7 @@ export default function Root() {
       localStorage.removeItem("accessToken");
       localStorage.removeItem("refreshToken");
       localStorage.removeItem("role");
-      navigate("/login", { replace: true });
+      navigate("/", { replace: true });
     }
   }, [isError, isPublicRoute, navigate]);
 
