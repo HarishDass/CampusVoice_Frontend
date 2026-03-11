@@ -106,12 +106,45 @@ export interface GetAssignedGrievancesParams {
   page?: number;
 }
 
+// ─── User Activity Types ──────────────────────────────────────────────────────
+
+export type ActivityEventType =
+  | "issue_submitted"
+  | "issue_resolved"
+  | "comment_added"
+  | "status_changed"
+  | "issue_reopened"
+  | "issue_escalated"
+  | "issue_deleted";
+
+export interface ActivityEvent {
+  _id: string;
+  type: ActivityEventType;
+  title: string;
+  description?: string;
+  issueId?: string;
+  createdAt: string;
+  meta?: Record<string, string>;
+}
+
+export interface UserActivityStats {
+  totalIssues: number;
+  resolved: number;
+  comments: number;
+  lastActive: string | null;
+}
+
+export interface UserActivityResponse {
+  events: ActivityEvent[];
+  stats: UserActivityStats;
+}
+
 // ─── API Slice ────────────────────────────────────────────────────────────────
 
 export const api = createApi({
   reducerPath: "api",
   baseQuery: baseQueryWithReauth,
-  tagTypes: ["Issues", "Comments", "AdminAnalytics", "Users"],
+  tagTypes: ["Issues", "Comments", "AdminAnalytics", "Users", "UserActivity"],
   endpoints: (builder) => ({
     // ─── Auth ──────────────────────────────────────────────────────────────
     register: builder.mutation<
@@ -129,7 +162,6 @@ export const api = createApi({
     me: builder.query<any, void>({
       query: () => ({ url: "/auth/me", method: "GET" }),
     }),
-    // Logged-in user resets their own password (no old password needed)
     resetPassword: builder.mutation<
       { message: string },
       { newPassword: string }
@@ -140,7 +172,6 @@ export const api = createApi({
         body,
       }),
     }),
-    // Step 1 of forgot-password flow: sends OTP to email
     forgotPassword: builder.mutation<{ message: string }, { email: string }>({
       query: (body) => ({
         url: "/auth/forgot-password",
@@ -148,7 +179,6 @@ export const api = createApi({
         body,
       }),
     }),
-    // Step 2 of forgot-password flow: verifies OTP and sets new password
     verifyOtpReset: builder.mutation<
       { message: string },
       { email: string; otp: string; newPassword: string }
@@ -196,6 +226,14 @@ export const api = createApi({
       providesTags: (result, error, id) => [{ type: "Users", id }],
     }),
 
+    // ─── NEW: User Activity ────────────────────────────────────────────────
+    getUserActivity: builder.query<UserActivityResponse, string>({
+      query: (userId) => `/admin/users/${userId}/activity`,
+      providesTags: (result, error, userId) => [
+        { type: "UserActivity", id: userId },
+      ],
+    }),
+
     createUser: builder.mutation<
       { id: string; email: string; name?: string; role: string },
       CreateUserPayload
@@ -233,6 +271,7 @@ export const api = createApi({
       invalidatesTags: (result, error, id) => [
         { type: "Users", id },
         { type: "Users", id: "LIST" },
+        { type: "UserActivity", id },
       ],
     }),
 
@@ -602,6 +641,7 @@ export const {
   // User Management (Admin)
   useGetUsersQuery,
   useGetUserByIdQuery,
+  useGetUserActivityQuery, // ← NEW
   useCreateUserMutation,
   useBulkCreateUsersMutation,
   useUpdateUserMutation,
